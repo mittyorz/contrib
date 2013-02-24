@@ -41,6 +41,13 @@ if ( $ARGV[0] and $ARGV[0] eq "config" ) {
     while ($text =~ /(md\d+)\s+:\s+active\s+(\(auto-read-only\)\s+|)(\w+)\s+(.*)\n.*\[(\d+)\/(\d+)]\s+\[(\w+)]/ ) {
 	my($dev,$dummy,$type,$members,$nmem,$nact,$status) = ($1,$2,$3,$4,$5,$6,$7);
 #	print "$text\nitem: $dev $type ($members) status=$status \n";
+	my $pct = 100 * $nact / $nmem;
+	my $rpct = 100;
+	$text = $';
+	if ($text =~ /^\n\s+\[[=>.]+]\s+(recovery|resync|reshape)\s+=\s+([\d.]+)%\s+/) {
+	    $type .= " $1";
+	    $rpct = $2;
+	}
 	if ( $ARGV[0] and $ARGV[0] eq "config" ) {
 	    print "$dev.label $dev\n";
 	    print "$dev.info $type $members\n";
@@ -52,16 +59,6 @@ if ( $ARGV[0] and $ARGV[0] eq "config" ) {
 	    # Because of an unfound bug, sometimes reported as 99.XX even when OS reports 100.
 	    print $dev, "_rebuild.critical 98:\n";	
 	} else {
-	    my $pct = 100 * $nact / $nmem;
-	    my $rpct = 100;
-	    if ( $pct < 100 ) {
-		my @output = `/sbin/mdadm -D /dev/$dev | grep Rebuild`;
-		if( $output[0] =~ /([0-9]+)% complete/ ) {
-			$rpct = $1;
-		} else {
-			$rpct = 0;
-		}
-	    }
 	    print "$dev.value $pct\n";
 	    print $dev, "_rebuild.value $rpct\n";
 	}
