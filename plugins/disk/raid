@@ -44,7 +44,7 @@ if ( $ARGV[0] and $ARGV[0] eq "config" ) {
 	my $pct = 100 * $nact / $nmem;
 	my $rpct = 100;
 	$text = $';
-	if ($text =~ /^\n\s+\[[=>.]+]\s+(recovery|resync|reshape)\s+=\s+([\d.]+)%\s+/) {
+	if ($text =~ /^\n\s+\[[=>.]+]\s+(recovery|resync|reshape|check)\s+=\s+([\d.]+)%\s+/) {
 	    $type .= " $1";
 	    $rpct = $2;
 	}
