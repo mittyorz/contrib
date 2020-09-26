@@ -58,16 +58,20 @@ if [ "$ACTION" = "autoconf" ]; then
 fi
 
 # Parse the n'th column of the iostat output for a given pool or disk as a
-# number (interpreting K and M suffixes).
+# number (interpreting KMGTPE suffixes).
 get_device_iostat_column() {
 	local device_label="$1"
 	local stat_column="$2"
-	# convert all numeric values into kB
+	# convert all numeric values into Bytes
 	echo "$iostats" \
 		| awk '{ if ($1 == "'"$device_label"'") print $'"$stat_column"'; }' \
-		| awk '/M/ {print int($1)*1000};
-			/K/ {print int($1)};
-			/[0-9]$/ {print int($1)/1000}'
+		| awk '/K/ {print int($1*1024)};
+			/M/ {print int($1*1024*1024)};
+			/G/ {print int($1*1024*1024*1024)};
+			/T/ {print int($1*1024*1024*1024*1024)};
+			/P/ {print int($1*1024*1024*1024*1024*1024)};
+			/E/ {print int($1*1024*1024*1024*1024*1024*1024)};
+			/[0-9]$/ {print $1}'
 }
 
 
@@ -94,10 +98,9 @@ if [ "$ACTION" = "config" ]; then
 	fi
 
 	echo 'graph_title zpool iostat'
-	echo 'graph_args --base 1000 -l 0'
-	echo 'graph_vlabel write (-) / read (+) KBytes/s'
+	echo 'graph_args --base 1024'
+	echo 'graph_vlabel write (-) / read (+) Bytes/${graph_period}'
 	echo 'graph_category disk'
-	echo 'graph_scale no'
 	echo 'graph_info This graph shows zpool iostat'
 	# Assemble the "graph_order" as a sorted list of read/write pairs for
 	# each device.
@@ -122,11 +125,11 @@ if [ "$ACTION" = "config" ]; then
 fi
 
 
-set +e	# zpool iostat with '-y' flag can fail
-iostats=$("$ZPOOL_BIN" iostat -v 1 1 -y 2> /dev/null)
+set +e	# zpool iostat with '-y -p' flags can fail
+iostats=$("$ZPOOL_BIN" iostat -v 1 1 -y -p 2> /dev/null)
 set -e
 if [ -z "$iostats" ]; then
-	# no pools available or '-y' flag is not supported yet with this version
+	# no pools available or '-y -p' flags are not supported yet with this version
 	zlines=$("$ZPOOL_BIN" iostat -v | wc -l | sed 's/ //g')
 	if [ $zlines -eq 0 ]; then
 		# no pools available
