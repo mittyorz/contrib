@@ -57,13 +57,6 @@ if [ "$ACTION" = "autoconf" ]; then
 	exit 0
 fi
 
-zlines=$("$ZPOOL_BIN" iostat -v | wc -l | sed 's/ //g')
-iostats=$("$ZPOOL_BIN" iostat -v 1 1 | tail "-$zlines")
-zlist=$(echo "$iostats" \
-	| awk '/alloc/ {next}; /avail/ {next}; /raid/ {next}; /mirror/ {next};
-		{ if ( $4 >=0 ) print $1}' \
-	| tr ' ' '\n')
-
 # Parse the n'th column of the iostat output for a given pool or disk as a
 # number (interpreting K and M suffixes).
 get_device_iostat_column() {
@@ -91,6 +84,15 @@ get_device_fieldname() {
 
 
 if [ "$ACTION" = "config" ]; then
+	zlist=$("$ZPOOL_BIN" iostat -v \
+		| awk '/alloc/ {next}; /avail/ {next}; /raid/ {next}; /mirror/ {next};
+			{ if ( $4 >=0 ) print $1}' \
+		| tr ' ' '\n')
+	if [ -z "$zlist" ]; then
+		# no pools available
+		exit 0
+	fi
+
 	echo 'graph_title zpool iostat'
 	echo 'graph_args --base 1000 -l 0'
 	echo 'graph_vlabel write (-) / read (+) KBytes/s'
@@ -119,6 +121,23 @@ if [ "$ACTION" = "config" ]; then
 	exit 0
 fi
 
+
+set +e	# zpool iostat with '-y' flag can fail
+iostats=$("$ZPOOL_BIN" iostat -v 1 1 -y 2> /dev/null)
+set -e
+if [ -z "$iostats" ]; then
+	# no pools available or '-y' flag is not supported yet with this version
+	zlines=$("$ZPOOL_BIN" iostat -v | wc -l | sed 's/ //g')
+	if [ $zlines -eq 0 ]; then
+		# no pools available
+		exit 0
+	fi
+	iostats=$("$ZPOOL_BIN" iostat -v 1 2 | tail "-$zlines")
+fi
+zlist=$(echo "$iostats" \
+	| awk '/alloc/ {next}; /avail/ {next}; /raid/ {next}; /mirror/ {next};
+		{ if ( $4 >=0 ) print $1}' \
+	| tr ' ' '\n')
 
 echo "$zlist" | while read -r device_id; do
 	fieldname="$(get_device_fieldname "$device_id")"
